@@ -1,3 +1,5 @@
+Please see: https://github.com/UC-Berkeley-I-School/w207_FinalProject_Dolan_Heuberger_Scaperoth_Yang
+
 
 # nanoGPT
 
