@@ -20,6 +20,7 @@ import os
 import time
 import math
 import pickle
+import csv
 from contextlib import nullcontext
 
 import numpy as np
@@ -35,7 +36,8 @@ from model import GPTConfig, GPT
 out_dir = 'out'
 eval_interval = 2000
 log_interval = 1
-eval_iters = 200
+#eval_iters = 200
+eval_iters = 20
 eval_only = False # if True, script exits right after the first eval
 always_save_checkpoint = True # if True, always save a checkpoint after each eval
 init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
@@ -239,6 +241,7 @@ def get_lr(it):
     return min_lr + coeff * (learning_rate - min_lr)
 
 # logging
+log_metrics = []  # Initialize an empty list to store metrics
 if wandb_log and master_process:
     import wandb
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
@@ -259,7 +262,20 @@ while True:
     # evaluate the loss on train/val sets and write checkpoints
     if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()
+        
+        # Collect metrics into a dictionary 
+        metrics = {
+            "iter": iter_num,
+            "train/loss": losses['train'],
+            "val/loss": losses['val'],
+            "lr": lr,
+            "mfu": running_mfu * 100,  # convert to percentage
+        }
+        
+        log_metrics.append(metrics)  # Append metrics to the list for later saving to a file
+        
         print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        
         if wandb_log:
             wandb.log({
                 "iter": iter_num,
@@ -331,3 +347,29 @@ while True:
 
 if ddp:
     destroy_process_group()
+
+# Save logged metrics to a CSV file
+'''
+if log_metrics:
+    with open('metrics_log.csv', 'w', newline='') as csvfile:
+        fieldnames = log_metrics[0].keys()
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        
+        writer.writeheader()
+        for metric in log_metrics:
+            writer.writerow(metric)
+'''
+
+log_path = os.path.join(out_dir, 'metrics_log.csv')
+
+if log_metrics:
+    with open(log_path, 'w', newline='') as csvfile:
+        fieldnames = log_metrics[0].keys()
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        
+        writer.writeheader()
+        for metric in log_metrics:
+            writer.writerow(metric)
+            
+            
+            
